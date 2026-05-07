@@ -28,7 +28,7 @@ us_sector_ai_fund/
 content_engine/
 agents/
 data_pipeline/
-database/
+/database/
 draft_zone/
 .streamlit/
 ops_scripts/_*.py
