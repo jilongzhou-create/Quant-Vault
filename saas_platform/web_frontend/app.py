@@ -16,6 +16,16 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
+CACHE_TTL = 300
+
+@st.cache_data(ttl=CACHE_TTL, show_spinner=False)
+def _cached_get_strategies():
+    return get_public_strategies()
+
+@st.cache_data(ttl=CACHE_TTL, show_spinner=False)
+def _cached_get_equity(strategy_id, is_backtest):
+    return get_strategy_equity_curve(strategy_id, is_backtest=is_backtest, limit=10000)
+
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
@@ -191,8 +201,8 @@ def _downsample(df, max_points=500):
 
 
 def _chart(strategy_id, live_start_date=None):
-    bt = get_strategy_equity_curve(strategy_id, is_backtest=True, limit=10000)
-    lv = get_strategy_equity_curve(strategy_id, is_backtest=False, limit=10000)
+    bt = _cached_get_equity(strategy_id, is_backtest=True)
+    lv = _cached_get_equity(strategy_id, is_backtest=False)
 
     bt_df = _prepare_chart_data(bt)
     lv_df = _prepare_chart_data(lv)
@@ -253,15 +263,20 @@ def _chart(strategy_id, live_start_date=None):
         ))
 
     if live_start_date:
-        fig.add_vline(
-            x=pd.Timestamp(live_start_date).isoformat(),
-            line_dash="dash",
-            line_color="#f59e0b",
-            line_width=1.5,
-            annotation_text="LIVE ▶",
-            annotation_position="top left",
-            annotation_font_size=10,
-            annotation_font_color="#f59e0b",
+        ls_str = str(live_start_date)[:10]
+        fig.add_shape(
+            type="line",
+            x0=ls_str, x1=ls_str,
+            y0=0, y1=1,
+            yref="paper",
+            line=dict(color="#f59e0b", width=1.5, dash="dash"),
+        )
+        fig.add_annotation(
+            x=ls_str, y=1.02, yref="paper",
+            text="LIVE ▶",
+            showarrow=False,
+            font=dict(size=10, color="#f59e0b"),
+            xanchor="left",
         )
 
     fig.update_layout(
@@ -340,7 +355,7 @@ def _discover():
             st.markdown(f"- `{k}`: `{v}`")
         return
 
-    strategies = get_public_strategies()
+    strategies = _cached_get_strategies()
     if not strategies:
         st.warning(t('no_strategies'))
         return
@@ -375,7 +390,7 @@ def _discover():
         m2.metric(t('ann_ret'), f"{bt_ann:.1%}" if bt_ann else '—')
         m3.metric(t('mdd'), f"{bt_mdd:.1%}" if bt_mdd else '—')
 
-        lv = get_strategy_equity_curve(s['id'], is_backtest=False, limit=10000)
+        lv = _cached_get_equity(s['id'], is_backtest=False)
         lv_df = _prepare_chart_data(lv)
         live_stats = _calc_live_stats(lv_df)
 
@@ -473,7 +488,7 @@ def _dashboard():
         subs = [s for s in get_user_subscriptions(uid) if s.get('is_active')]
         if subs:
             st.markdown(f"**{t('active_subs')}**")
-            smap = {s['id']: s for s in get_public_strategies()}
+            smap = {s['id']: s for s in _cached_get_strategies()}
             for sub in subs:
                 strat = smap.get(sub['strategy_id'], {})
                 sn = strat.get('name', sub['strategy_id'][:8])
@@ -486,7 +501,7 @@ def _dashboard():
 
         st.divider()
         st.markdown(f"**{t('new_sub')}**")
-        strats = get_public_strategies()
+        strats = _cached_get_strategies()
         if not strats:
             st.info(t('no_sub')); return
         opts = {f"{s['name']} ({s.get('target_symbol', '')})": s['id'] for s in strats}
@@ -507,7 +522,7 @@ def _dashboard():
         subs = [s for s in get_user_subscriptions(uid) if s.get('is_active')]
         if not subs:
             st.info(t('no_pos')); return
-        smap = {s['id']: s for s in get_public_strategies()}
+        smap = {s['id']: s for s in _cached_get_strategies()}
         for sub in subs:
             strat = smap.get(sub['strategy_id'], {})
             pos = strat.get('current_target_position', 0)
