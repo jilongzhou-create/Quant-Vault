@@ -1,0 +1,8 @@
+pandas
+numpy
+python-dotenv
+google-cloud-aiplatform
+ccxt
+ta
+matplotlib
+google-genai

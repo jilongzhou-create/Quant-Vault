@@ -649,7 +649,7 @@ def get_public_strategies() -> list[dict]:
         return []
     return db.select(
         'saas_strategies',
-        columns='id,name,description,target_asset,target_symbol,current_target_position,backtest_sharpe,backtest_annualized_return,backtest_max_drawdown,backtest_start_date,backtest_end_date,status,timeframe',
+        columns='id,name,description,target_asset,target_symbol,current_target_position,backtest_sharpe,backtest_annualized_return,backtest_max_drawdown,backtest_start_date,backtest_end_date,live_start_date,status,timeframe',
         filters={'status': 'in.(LIVE,PAPER)'},
         order='backtest_sharpe.desc',
     )

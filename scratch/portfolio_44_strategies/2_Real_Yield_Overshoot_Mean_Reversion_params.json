@@ -1,0 +1,8 @@
+{
+  "zscore_window": 120,
+  "smooth_window": 10,
+  "fedfunds_window": 60,
+  "fedfunds_stable_threshold": 25.0,
+  "buy_zscore_threshold": 1.8,
+  "sell_zscore_threshold": 0.0
+}

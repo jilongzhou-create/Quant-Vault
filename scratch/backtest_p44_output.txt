@@ -1,0 +1,169 @@
+﻿python : 2026-05-05 11:15:29,878 - INFO - config - 代理模式: PROXY (http://127.0.0.
+1:19178)
+所在位置 行:1 字符: 63
++ ... s\trading_agent; python scratch/backtest_portfolio_44.py 2>&1 | Out-F ...
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2026-05-05 11:1...27.0.0.1:19178) 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+2026-05-05 11:15:29,879 - INFO - config - 配置加载完成 [环境: PROD]
+2026-05-05 11:15:29,880 - INFO - config - 数据库路径: C:\Users\Jilong\Documents\trae
+_projects\trading_agent\data\trading_system_prod.db
+2026-05-05 11:15:29,880 - INFO - config - 日志级别: INFO
+2026-05-05 11:15:39,101 - INFO - backtest_engine - 极速加载数据: BTC_USDT, 资产: crypto
+, 周期: 1d
+2026-05-05 11:15:39,160 - INFO - backtest_engine - 1. 读取基础 K 线...
+2026-05-05 11:16:40,477 - INFO - backtest_engine - 2. 降采样到 1d (原始数据 2659490 条).
+..
+2026-05-05 11:16:41,319 - INFO - backtest_engine - 降采样完成，共 3180 条。开始计算技术指标...
+2026-05-05 11:16:41,395 - INFO - backtest_engine - 3. 获取并融合宏观因子...
+2026-05-05 11:16:56,388 - INFO - backtest_engine - 极速加载完成！最终数据形状: (3180, 149)
+2026-05-05 11:16:56,454 - INFO - backtest_engine - 开始编译策略代码
+2026-05-05 11:16:56,472 - INFO - backtest_engine - 策略代码编译成功
+2026-05-05 11:16:56,546 - INFO - backtest_engine - 开始编译策略代码
+2026-05-05 11:16:56,551 - INFO - backtest_engine - 策略代码编译成功
+2026-05-05 11:16:56,591 - INFO - backtest_engine - 开始编译策略代码
+2026-05-05 11:16:56,616 - INFO - backtest_engine - 策略代码编译成功
+2026-05-05 11:16:56,824 - INFO - backtest_engine - 开始编译策略代码
+2026-05-05 11:16:56,835 - INFO - backtest_engine - 策略代码编译成功
+2026-05-05 11:16:56,930 - INFO - backtest_engine - 开始编译策略代码
+2026-05-05 11:16:56,934 - INFO - backtest_engine - 策略代码编译成功
+2026-05-05 11:16:56,987 - INFO - backtest_engine - 开始编译策略代码
+2026-05-05 11:16:56,996 - INFO - backtest_engine - 策略代码编译成功
+2026-05-05 11:16:57,029 - INFO - backtest_engine - 开始编译策略代码
+2026-05-05 11:16:57,033 - INFO - backtest_engine - 策略代码编译成功
+2026-05-05 11:16:57,087 - INFO - backtest_engine - 开始编译策略代码
+2026-05-05 11:16:57,100 - INFO - backtest_engine - 策略代码编译成功
+================================================================================
+  Portfolio 44 Full Backtest: 2018-01-01 ~ 2026-04-30
+  Strategy: Macro_Momentum_Reversion_V1 (8 strategies, scaling weight)
+================================================================================
+
+  Loaded 8 strategies:
+    - Credit_Deterioration_Crypto_Hedge
+    - Real_Yield_Overshoot_Mean_Reversion
+    - Sahm_Recession_MVRV_Right_Side_Reversal
+    - Robust_Range_Volatility_Trend_Alpha
+    - Weekend_Retail_Perp_Exuberance_Fade
+    - Onchain_MVRV_Sentiment_Divergence
+    - Macro_Headwind_NFCI_Constraint
+    - Rising_Real_Yields_Gravity
+
+  Loading BTC daily data...
+  Data range: 2018-01-01 00:00:00 ~ 2026-04-30 00:00:00, 3042 trading days
+
+  Generating signals for each strategy...
+    Computing: Credit_Deterioration_Crypto_Hedge...
+      Non-zero signals: 749/3042 (24.6%)
+    Computing: Real_Yield_Overshoot_Mean_Reversion...
+      Non-zero signals: 790/3042 (26.0%)
+    Computing: Sahm_Recession_MVRV_Right_Side_Reversal...
+      Non-zero signals: 656/3042 (21.6%)
+    Computing: Robust_Range_Volatility_Trend_Alpha...
+      Non-zero signals: 615/3042 (20.2%)
+    Computing: Weekend_Retail_Perp_Exuberance_Fade...
+      Non-zero signals: 3042/3042 (100.0%)
+    Computing: Onchain_MVRV_Sentiment_Divergence...
+      Non-zero signals: 3042/3042 (100.0%)
+    Computing: Macro_Headwind_NFCI_Constraint...
+      Non-zero signals: 1155/3042 (38.0%)
+    Computing: Rising_Real_Yields_Gravity...
+      Non-zero signals: 1741/3042 (57.2%)
+
+  Combining signals (scaling mode)...
+  Combined signal non-zero: 2591/3042 (85.2%)
+  Combined signal mean: 0.2360, std: 0.3429
+  Combined signal range: [-1.0000, 1.0000]
+
+================================================================================
+  FULL RANGE BACKTEST: 2018-01-01 ~ 2026-04-30
+================================================================================
+  Total Return:      1459.30%
+  Annual Return:       39.07%
+  Sharpe Ratio:        1.3510
+  Max Drawdown:       -47.19%
+  Calmar Ratio:        0.8280
+
+================================================================================
+  FOCUS PERIOD: 2018-01-01 ~ 2021-04-30
+================================================================================
+  Total Return:       133.61%
+  Annual Return:       29.03%
+  Sharpe Ratio:        0.9218
+  Max Drawdown:       -47.19%
+  Calmar Ratio:        0.6152
+
+================================================================================
+  BUY & HOLD BENCHMARK
+================================================================================
+  [Full Range] Total Return:    470.34%, Annual:     23.25%, Sharpe:     0.6518, MaxDD:    -81.18%, Calmar:     0.2864
+  [2018-2021.04] Total Return:    331.00%, Annual:     55.09%, Sharpe:     0.9643, MaxDD:    -81.18%, Calmar:     0.6786
+
+================================================================================
+  YEARLY BREAKDOWN (Portfolio 44)
+================================================================================
+    Year      Return         Vol    Sharpe       MaxDD    Calmar    AvgPos
+  ----------------------------------------------------------------------
+    2018     -40.13%      26.66%     -1.79     -47.19%     -0.85    0.3397
+    2019      72.51%      38.92%      1.59     -26.90%      2.70    0.4764
+    2020     128.83%      34.10%      2.59     -21.31%      6.05    0.4935
+    2021      44.71%      32.02%      1.31     -17.76%      2.52   -0.1284
+    2022       1.00%      15.64%      0.14     -14.97%      0.07    0.1740
+    2023     100.46%      24.95%      2.91      -8.70%     11.55    0.4774
+    2024     104.10%      24.80%      3.00      -8.31%     12.53    0.0318
+    2025       8.65%      12.63%      0.72      -5.80%      1.49    0.0541
+    2026       1.55%      11.39%      0.47      -5.71%      0.27    0.1396
+
+================================================================================
+  YEARLY BREAKDOWN (Buy & Hold)
+================================================================================
+    Year      Return         Vol    Sharpe       MaxDD    Calmar
+  ----------------------------------------------------------
+    2018     -72.34%      83.04%     -1.13     -81.18%     -0.89
+    2019      94.31%      68.66%      1.31     -49.41%      1.91
+    2020     301.98%      75.50%      2.25     -53.60%      5.63
+    2021      59.79%      81.12%      0.98     -53.14%      1.13
+    2022     -64.21%      63.76%     -1.29     -66.93%     -0.96
+    2023     155.61%      44.08%      2.35     -20.00%      7.78
+    2024     121.31%      53.10%      1.76     -26.15%      4.64
+    2025      -6.33%      41.70%      0.05     -32.02%     -0.20
+    2026     -12.89%      54.34%     -0.50     -35.11%     -0.37
+
+================================================================================
+  COMPARISON SUMMARY
+================================================================================
+  Metric                   Portfolio44      Buy&Hold
+  --------------------------------------------------
+  Total Return               1459.30%      470.34%
+  Annual Return                39.07%       23.25%
+  Sharpe Ratio                  1.3510        0.6518
+  Max Drawdown                -47.19%      -81.18%
+  Calmar Ratio                  0.8280        0.2864
+
+  === 2018-2021.04 Focus Period ===
+  Metric                   Portfolio44      Buy&Hold
+  --------------------------------------------------
+  Total Return                133.61%      331.00%
+  Annual Return                29.03%       55.09%
+  Sharpe Ratio                  0.9218        0.9643
+  Max Drawdown                -47.19%      -81.18%
+  Calmar Ratio                  0.6152        0.6786
+
+================================================================================
+  INDIVIDUAL STRATEGY CONTRIBUTION
+================================================================================
+  Strategy                                        NonZero%   MeanSig  FullSharpe
+  --------------------------------------------------------------------------------
+  Credit_Deterioration_Crypto_Hedge                 24.6%   +0.2462        1.43
+  Real_Yield_Overshoot_Mean_Reversion               26.0%   +0.2597        1.01
+  Sahm_Recession_MVRV_Right_Side_Reversal           21.6%   +0.2156        1.08
+  Robust_Range_Volatility_Trend_Alpha               20.2%   +0.2022        0.84
+  Weekend_Retail_Perp_Exuberance_Fade              100.0%   +0.6700        0.76
+  Onchain_MVRV_Sentiment_Divergence                100.0%   +0.1328        0.41
+  Macro_Headwind_NFCI_Constraint                    38.0%   +0.3481        1.33
+  Rising_Real_Yields_Gravity                        57.2%   +0.0220        0.27
+
+================================================================================
+  Backtest Complete!
+================================================================================

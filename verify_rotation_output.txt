@@ -1,0 +1,20 @@
+NAV: 1.0000 -> 1.5857
+CAGR: 2.42%
+AnnVol: 11.62%
+Sharpe: 0.26
+MaxDD: 28.17%
+Holdings dist: {0: np.int64(1629), 2: np.int64(3237)}
+Top5 held:
+  XLK: 1205d (24.8%)
+  XLY: 973d (20.0%)
+  XLV: 801d (16.5%)
+  XLI: 777d (16.0%)
+  XLP: 559d (11.5%)
+2008GFC: ret=+0.00%, dd=0.00%
+2020COVID: ret=-10.37%, dd=10.42%
+2022Bear: ret=-8.83%, dd=9.86%
+2024Bull: ret=+11.61%, dd=6.15%
+Lookahead check: max_diff=0.0e+00 (PASS)
+Rank sample 2008-01-03: {'XLE': np.int64(1), 'XLU': np.int64(2), 'XLB': np.int64(3), 'XLP': np.int64(4), 'XLK': np.int64(5), 'XLI': np.int64(6), 'XLV': np.int64(7), 'XLF': np.int64(8), 'XLY': np.int64(9)}
+Veto diag shape: (4866, 7)
+Veto columns: ['Credit_Spread', 'Credit_SMA', 'Credit_Danger', 'Breadth_Ratio', 'Breadth_Danger', 'Raw_Signal', 'Final_Veto_Signal']

@@ -564,7 +564,14 @@ class CloudSignalEngine:
                         continue
 
                     bt_equity = get_equity_curve(sid, is_backtest=True, limit=1)
-                    if bt_equity:
+
+                    live_start = s_info.get('live_start_date')
+                    if live_start:
+                        start_date = pd.Timestamp(live_start)
+                        if start_date.tz is None:
+                            start_date = start_date.tz_localize('UTC')
+                        logger.info(f"  {sname}: live_start_date={live_start}，从 {start_date.strftime('%Y-%m-%d')} 开始回填")
+                    elif bt_equity:
                         last_bt_date = pd.Timestamp(bt_equity[0].get('date'))
                         if last_bt_date.tz is None:
                             last_bt_date = last_bt_date.tz_localize('UTC')
@@ -600,7 +607,17 @@ class CloudSignalEngine:
                     logger.info(f"  {sname}: 策略执行成功，生成 {len(target_positions)} 个仓位信号")
 
                     prev_nav = INITIAL_NAV
-                    if bt_equity:
+                    if live_start and bt_equity:
+                        bt_all = get_equity_curve(sid, is_backtest=True, limit=99999)
+                        if bt_all:
+                            bt_df = pd.DataFrame(bt_all)
+                            bt_df['date'] = pd.to_datetime(bt_df['date'])
+                            ls_ts = pd.Timestamp(live_start)
+                            before_live = bt_df[bt_df['date'] < ls_ts]
+                            if not before_live.empty:
+                                prev_nav = float(before_live.iloc[-1]['nav_value'])
+                                logger.info(f"  {sname}: 从 live_start_date 前最后一个回测净值 {prev_nav:.2f} 开始")
+                    elif bt_equity:
                         prev_nav = float(bt_equity[0].get('nav_value', INITIAL_NAV))
                         logger.info(f"  {sname}: 从回测末尾净值 {prev_nav:.2f} 开始")
 

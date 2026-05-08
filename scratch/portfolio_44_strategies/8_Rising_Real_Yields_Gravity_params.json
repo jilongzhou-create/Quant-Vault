@@ -1,0 +1,6 @@
+{
+  "dfii10_ma_win": 20,
+  "dfii10_smooth_win": 3,
+  "t10y2y_roc_win": 15,
+  "t10y2y_spread_thresh": 0.05
+}

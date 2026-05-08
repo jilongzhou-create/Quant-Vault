@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS saas_strategies (
     backtest_max_drawdown  DOUBLE PRECISION,
     backtest_start_date    DATE,
     backtest_end_date      DATE,
+    live_start_date        DATE,
     published_at           TIMESTAMPTZ DEFAULT NOW(),
     created_at             TIMESTAMPTZ DEFAULT NOW(),
     updated_at             TIMESTAMPTZ DEFAULT NOW()

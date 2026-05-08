@@ -1,0 +1,10 @@
+{
+  "nfci_window": 21,
+  "nasdaq_window": 14,
+  "nfci_diff_th": 0.0,
+  "nasdaq_mom_th": 0.0,
+  "sma_fast": 14,
+  "sma_slow": 42,
+  "dev_threshold": 0.08,
+  "short_dev_th": 0.12
+}

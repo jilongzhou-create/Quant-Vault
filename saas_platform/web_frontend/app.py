@@ -3,8 +3,8 @@
 QuantVault SaaS Frontend
 
 - Theme: .streamlit/config.toml (zero custom CSS)
-- Charts: TradingView Lightweight Charts
-- Navigation: streamlit-option-menu
+- Charts: Plotly
+- Navigation: streamlit radio
 - i18n: EN/ZH bilingual, default EN
 """
 
@@ -14,6 +14,7 @@ import hashlib
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 if project_root not in sys.path:
@@ -73,7 +74,10 @@ T = {
         'notional': 'Notional',
         'orders_title': 'Order History', 'no_orders': 'No orders yet',
         'please_login': 'Please sign in first',
-        'install_tv': 'Install TradingView charts: pip install streamlit-lightweight-charts',
+        'bt_stats': 'Backtest Performance', 'live_stats': 'Live Performance',
+        'total_return': 'Total Return', 'duration': 'Duration',
+        'signal': 'Signal', 'today_signal': 'Today Signal',
+        'days': 'days', 'long': 'Long', 'short': 'Short', 'flat': 'Flat',
     },
     'zh': {
         'discover': '策略发现', 'dashboard': '控制台', 'orders': '订单',
@@ -110,7 +114,10 @@ T = {
         'notional': '名义敞口',
         'orders_title': '订单记录', 'no_orders': '暂无订单',
         'please_login': '请先登录',
-        'install_tv': '安装TradingView图表: pip install streamlit-lightweight-charts',
+        'bt_stats': '回测表现', 'live_stats': '实盘表现',
+        'total_return': '总收益', 'duration': '运行时长',
+        'signal': '信号', 'today_signal': '当日信号',
+        'days': '天', 'long': '做多', 'short': '做空', 'flat': '空仓',
     },
 }
 
@@ -172,12 +179,28 @@ def _prepare_chart_data(records):
     return df
 
 
-def _chart(strategy_id):
+def _downsample(df, max_points=500):
+    if len(df) <= max_points:
+        return df
+    step = len(df) // max_points
+    sampled = df.iloc[::step].copy()
+    last = df.iloc[-1:]
+    sampled = pd.concat([sampled, last], ignore_index=True)
+    sampled = sampled.drop_duplicates(subset=['date'], keep='last').sort_values('date').reset_index(drop=True)
+    return sampled
+
+
+def _chart(strategy_id, live_start_date=None):
     bt = get_strategy_equity_curve(strategy_id, is_backtest=True, limit=10000)
     lv = get_strategy_equity_curve(strategy_id, is_backtest=False, limit=10000)
 
     bt_df = _prepare_chart_data(bt)
     lv_df = _prepare_chart_data(lv)
+
+    if live_start_date:
+        ls = pd.Timestamp(live_start_date)
+        if bt_df is not None and not bt_df.empty:
+            bt_df = bt_df[bt_df['date'] < ls]
 
     bt_count = len(bt_df)
     lv_count = len(lv_df)
@@ -186,16 +209,8 @@ def _chart(strategy_id):
         st.info(t('no_data'))
         return
 
-    with st.expander(f"📊 Debug: {bt_count} backtest | {lv_count} live pts", expanded=False):
-        if bt_count:
-            st.markdown(f"**Backtest**: {bt_df['date'].min().strftime('%Y-%m-%d')} ~ {bt_df['date'].max().strftime('%Y-%m-%d')}, NAV range: {bt_df['nav_value'].min():.2f} ~ {bt_df['nav_value'].max():.2f}")
-            st.dataframe(bt_df.head(5), hide_index=True)
-        if lv_count:
-            st.markdown(f"**Live**: {lv_df['date'].min().strftime('%Y-%m-%d')} ~ {lv_df['date'].max().strftime('%Y-%m-%d')}, NAV range: {lv_df['nav_value'].min():.2f} ~ {lv_df['nav_value'].max():.2f}")
-            st.dataframe(lv_df.head(5), hide_index=True)
-        if bt_count:
-            st.markdown(f"**Backtest tail:**")
-            st.dataframe(bt_df.tail(5), hide_index=True)
+    bt_plot = _downsample(bt_df) if bt_count > 0 else pd.DataFrame()
+    lv_plot = _downsample(lv_df) if lv_count > 0 else pd.DataFrame()
 
     all_dates = []
     if bt_count:
@@ -213,8 +228,8 @@ def _chart(strategy_id):
 
     if bt_count:
         fig.add_trace(go.Scatter(
-            x=bt_df['date'].tolist(),
-            y=bt_df['nav_value'].tolist(),
+            x=bt_plot['date'].tolist(),
+            y=bt_plot['nav_value'].tolist(),
             mode='lines',
             name=t('backtest'),
             line=dict(color='#6366f1', width=2),
@@ -226,8 +241,8 @@ def _chart(strategy_id):
 
     if lv_count:
         fig.add_trace(go.Scatter(
-            x=lv_df['date'].tolist(),
-            y=lv_df['nav_value'].tolist(),
+            x=lv_plot['date'].tolist(),
+            y=lv_plot['nav_value'].tolist(),
             mode='lines',
             name=t('live'),
             line=dict(color='#22c55e', width=2.5),
@@ -236,6 +251,18 @@ def _chart(strategy_id):
             hovertemplate='%{x|%Y-%m-%d}<br>NAV: %{y:.2f}<extra></extra>',
             connectgaps=True,
         ))
+
+    if live_start_date:
+        fig.add_vline(
+            x=pd.Timestamp(live_start_date).isoformat(),
+            line_dash="dash",
+            line_color="#f59e0b",
+            line_width=1.5,
+            annotation_text="LIVE ▶",
+            annotation_position="top left",
+            annotation_font_size=10,
+            annotation_font_color="#f59e0b",
+        )
 
     fig.update_layout(
         template='plotly_dark',
@@ -269,6 +296,37 @@ def _chart(strategy_id):
     })
 
 
+def _calc_live_stats(lv_df):
+    if lv_df is None or lv_df.empty:
+        return None
+    first_nav = lv_df['nav_value'].iloc[0]
+    last_nav = lv_df['nav_value'].iloc[-1]
+    total_return = (last_nav - first_nav) / first_nav if first_nav > 0 else 0
+    first_date = lv_df['date'].iloc[0]
+    last_date = lv_df['date'].iloc[-1]
+    duration_days = (last_date - first_date).days + 1
+    return {
+        'total_return': total_return,
+        'duration_days': duration_days,
+        'first_date': first_date,
+        'last_date': last_date,
+    }
+
+
+def _position_label(pos, lang='en'):
+    if pos is None:
+        return '—'
+    pct = f"{abs(pos)*100:.0f}%"
+    if pos > 0.01:
+        direction = t('long') if lang == 'zh' else 'Long'
+        return f"{direction} {pct}"
+    elif pos < -0.01:
+        direction = t('short') if lang == 'zh' else 'Short'
+        return f"{direction} {pct}"
+    else:
+        return t('flat') if lang == 'zh' else 'Flat'
+
+
 # ── Discover ──
 
 def _discover():
@@ -292,27 +350,45 @@ def _discover():
         status = s.get('status', '')
         badge = "🟢 LIVE" if status == 'LIVE' else "🟡 PAPER"
         pos = s.get('current_target_position')
-        pos_str = f"{pos*100:.0f}%" if pos is not None else '—'
+        live_start = s.get('live_start_date')
 
         c1, c2 = st.columns([4, 1])
         with c1:
             st.subheader(f"{name}  {badge}")
-            st.caption(f"{s.get('target_asset', '')} · {s.get('target_symbol', '')} · {s.get('timeframe', '1d')}")
+            info_parts = [s.get('target_asset', ''), s.get('target_symbol', '')]
+            if live_start:
+                info_parts.append(f"Live since {live_start[:10]}")
+            st.caption(' · '.join(p for p in info_parts if p))
         with c2:
             if st.session_state.logged_in:
                 if st.button(t('copy_trade'), key=f"ct_{s['id']}", type='primary'):
                     st.session_state.page_nav = t('dashboard')
                     st.rerun()
 
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric(t('sharpe'), f"{s.get('backtest_sharpe') or 0:.2f}")
-        ann = s.get('backtest_annualized_return')
-        m2.metric(t('ann_ret'), f"{ann:.1%}" if ann else '—')
-        mdd = s.get('backtest_max_drawdown')
-        m3.metric(t('mdd'), f"{mdd:.1%}" if mdd else '—')
-        m4.metric(t('position'), pos_str)
+        bt_sharpe = s.get('backtest_sharpe') or 0
+        bt_ann = s.get('backtest_annualized_return')
+        bt_mdd = s.get('backtest_max_drawdown')
 
-        _chart(s['id'])
+        st.markdown(f"**📊 {t('bt_stats')}**")
+        m1, m2, m3 = st.columns(3)
+        m1.metric(t('sharpe'), f"{bt_sharpe:.2f}")
+        m2.metric(t('ann_ret'), f"{bt_ann:.1%}" if bt_ann else '—')
+        m3.metric(t('mdd'), f"{bt_mdd:.1%}" if bt_mdd else '—')
+
+        lv = get_strategy_equity_curve(s['id'], is_backtest=False, limit=10000)
+        lv_df = _prepare_chart_data(lv)
+        live_stats = _calc_live_stats(lv_df)
+
+        if live_stats:
+            st.markdown(f"**🟢 {t('live_stats')}**")
+            l1, l2, l3 = st.columns(3)
+            l1.metric(t('total_return'), f"{live_stats['total_return']:.1%}",
+                      delta=f"{live_stats['total_return']:.1%}",
+                      delta_color="normal" if live_stats['total_return'] >= 0 else "inverse")
+            l2.metric(t('duration'), f"{live_stats['duration_days']} {t('days')}")
+            l3.metric(t('today_signal'), _position_label(pos, st.session_state.lang))
+
+        _chart(s['id'], live_start_date=live_start)
         st.divider()
 
 

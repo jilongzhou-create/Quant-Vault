@@ -1,0 +1,12 @@
+{
+  "sahm_threshold": 0.0,
+  "t10y3m_threshold": -1.0,
+  "mvrv_cold_threshold": 1.5,
+  "macro_bg_window": 180,
+  "mvrv_ma_fast": 10,
+  "mvrv_ma_slow": 30,
+  "price_ma_window": 20,
+  "mvrv_sell_threshold": 2.4,
+  "price_sell_ma_window": 50,
+  "macro_smooth_window": 14
+}
