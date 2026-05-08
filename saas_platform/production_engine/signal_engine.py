@@ -612,11 +612,14 @@ class CloudSignalEngine:
                         if bt_all:
                             bt_df = pd.DataFrame(bt_all)
                             bt_df['date'] = pd.to_datetime(bt_df['date'])
+                            bt_df = bt_df.sort_values('date').reset_index(drop=True)
                             ls_ts = pd.Timestamp(live_start)
                             before_live = bt_df[bt_df['date'] < ls_ts]
                             if not before_live.empty:
                                 prev_nav = float(before_live.iloc[-1]['nav_value'])
                                 logger.info(f"  {sname}: 从 live_start_date 前最后一个回测净值 {prev_nav:.2f} 开始")
+                            else:
+                                logger.warning(f"  {sname}: live_start_date 前无回测净值，从 INITIAL_NAV={INITIAL_NAV} 开始")
                     elif bt_equity:
                         prev_nav = float(bt_equity[0].get('nav_value', INITIAL_NAV))
                         logger.info(f"  {sname}: 从回测末尾净值 {prev_nav:.2f} 开始")
