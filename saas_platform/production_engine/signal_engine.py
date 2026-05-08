@@ -607,22 +607,30 @@ class CloudSignalEngine:
                     logger.info(f"  {sname}: 策略执行成功，生成 {len(target_positions)} 个仓位信号")
 
                     prev_nav = INITIAL_NAV
-                    if live_start and bt_equity:
-                        bt_all = get_equity_curve(sid, is_backtest=True, limit=99999)
-                        if bt_all:
-                            bt_df = pd.DataFrame(bt_all)
-                            bt_df['date'] = pd.to_datetime(bt_df['date'])
-                            bt_df = bt_df.sort_values('date').reset_index(drop=True)
-                            ls_ts = pd.Timestamp(live_start)
+                    from saas_platform.database.supabase_client import get_strategy_equity_curve as _get_eq_asc
+                    bt_all = _get_eq_asc(sid, is_backtest=True, limit=10000)
+                    if bt_all:
+                        bt_df = pd.DataFrame(bt_all)
+                        bt_df['date'] = pd.to_datetime(bt_df['date'])
+                        bt_df = bt_df.sort_values('date').reset_index(drop=True)
+                        logger.info(f"  {sname}: 回测净值共 {len(bt_df)} 条, 范围 {bt_df['date'].iloc[0]} ~ {bt_df['date'].iloc[-1]}, 末尾NAV={bt_df['nav_value'].iloc[-1]:.4f}")
+                        if live_start:
+                            ls_str = str(live_start)[:10]
+                            ls_ts = pd.Timestamp(ls_str)
                             before_live = bt_df[bt_df['date'] < ls_ts]
+                            logger.info(f"  {sname}: live_start={ls_str}, before_live共 {len(before_live)} 条")
                             if not before_live.empty:
-                                prev_nav = float(before_live.iloc[-1]['nav_value'])
-                                logger.info(f"  {sname}: 从 live_start_date 前最后一个回测净值 {prev_nav:.2f} 开始")
+                                last_row = before_live.iloc[-1]
+                                prev_nav = float(last_row['nav_value'])
+                                logger.info(f"  {sname}: ✅ 从 live_start 前最后回测净值 {prev_nav:.4f} (日期={last_row['date']}) 开始")
                             else:
-                                logger.warning(f"  {sname}: live_start_date 前无回测净值，从 INITIAL_NAV={INITIAL_NAV} 开始")
-                    elif bt_equity:
-                        prev_nav = float(bt_equity[0].get('nav_value', INITIAL_NAV))
-                        logger.info(f"  {sname}: 从回测末尾净值 {prev_nav:.2f} 开始")
+                                logger.warning(f"  {sname}: live_start 前无回测净值，用回测最后NAV={bt_df['nav_value'].iloc[-1]:.4f}")
+                                prev_nav = float(bt_df['nav_value'].iloc[-1])
+                        else:
+                            prev_nav = float(bt_df['nav_value'].iloc[-1])
+                            logger.info(f"  {sname}: 无 live_start_date，从回测末尾净值 {prev_nav:.4f} 开始")
+                    else:
+                        logger.warning(f"  {sname}: 无回测净值数据，从 INITIAL_NAV={INITIAL_NAV} 开始")
 
                     prev_position = 0.0
                     nav_records = []
