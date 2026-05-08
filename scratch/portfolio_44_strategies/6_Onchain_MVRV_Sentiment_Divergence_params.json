@@ -1,8 +1,0 @@
-{
-  "mvrv_buy": 1.2,
-  "fg_buy": 35.0,
-  "mvrv_sell": 2.5,
-  "fr_sell": 0.00015,
-  "smooth_window": 30,
-  "enable_short": true
-}

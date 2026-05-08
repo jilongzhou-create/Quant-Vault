@@ -1,9 +1,0 @@
-{
-  "hyc_diff_threshold": 7.0,
-  "walcl_diff_threshold": 0.0,
-  "macro_score_threshold": 2,
-  "macro_window": 20,
-  "mvrv_short_window": 14,
-  "mvrv_long_window": 120,
-  "mvrv_top": 2.5
-}

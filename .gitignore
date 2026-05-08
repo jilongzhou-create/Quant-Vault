@@ -21,6 +21,9 @@ Thumbs.db
 *.key
 vertex_key.json
 data/
+.streamlit/
+ops_scripts/_*.py
+ops_scripts/_*.txt
 all_weather_portfolio/
 btc_ai_fund/
 gold_ai_fund/
@@ -30,6 +33,12 @@ agents/
 data_pipeline/
 /database/
 draft_zone/
-.streamlit/
-ops_scripts/_*.py
-ops_scripts/_*.txt
+etf_rotation_strategy/
+isolated_macro/
+playground/
+portfolio_allocators/
+scratch/
+spy_ai_fund/
+run_scraper.py
+run_scraper_incremental.py
+portfolio_engine.py
