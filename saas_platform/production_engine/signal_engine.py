@@ -542,7 +542,7 @@ class CloudSignalEngine:
                         continue
                     full_strategy = db.select(
                         'saas_strategies',
-                        columns='id,name,python_code,params_json,target_symbol,backtest_end_date,backtest_start_date,current_target_position',
+                        columns='id,name,python_code,params_json,target_symbol,backtest_end_date,backtest_start_date,live_start_date,current_target_position',
                         filters={'id': f'eq.{sid}'},
                     )
                     if not full_strategy:
