@@ -2,13 +2,8 @@
 """
 QuantVault SaaS Platform - Multi-Page Frontend
 
-Pages:
-  - Home: strategy cards grid
-  - Strategy Detail: metrics + chart + copy trading
-  - Dashboard: user subscriptions & API keys
-  - Orders: order history
-
-Auth: username + password (stored in Supabase)
+Navigation: sidebar (Streamlit standard pattern)
+Pages: Home (cards) → Strategy Detail → Copy Trading
 """
 
 import os
@@ -40,14 +35,12 @@ from saas_platform.database.supabase_client import (
 )
 from saas_platform.web_frontend.crypto_utils import encrypt_api_key, decrypt_api_key
 
-# ── Config ──
-
 CACHE_TTL = 300
 
 T = {
     'en': {
-        'home': 'Home', 'dashboard': 'Dashboard', 'orders': 'Orders',
-        'login': 'Sign In', 'register': 'Sign Up', 'logout': 'Sign Out',
+        'home': '🏠 Home', 'dashboard': '📊 Dashboard', 'orders': '📋 Orders',
+        'login': '🔑 Sign In', 'register': '📝 Sign Up', 'logout': '🚪 Sign Out',
         'lang': '中文',
         'subtitle': 'Algorithmic Strategy & Copy Trading Platform',
         'no_strategies': 'No strategies available yet',
@@ -83,16 +76,17 @@ T = {
         'total_return': 'Total Return', 'duration': 'Duration',
         'signal': 'Signal', 'today_signal': 'Today Signal',
         'days': 'days', 'long': 'Long', 'short': 'Short', 'flat': 'Flat',
-        'copy_trade': 'Auto Copy Trade', 'copy_desc': 'Bind your Binance API key to auto-copy this strategy\'s trades.',
+        'copy_trade': '🤖 Auto Copy Trade', 'copy_desc': 'Bind your Binance API key to auto-copy this strategy\'s trades.',
         'bind_api': 'Bind API Key', 'bind_api_desc': 'Go to Dashboard to bind your Binance API key first.',
         'go_dashboard': 'Go to Dashboard',
         'strategy_detail': 'Strategy Detail',
         'live_since': 'Live since',
         'back': '← Back to Home',
+        'signed_in_as': 'Signed in as',
     },
     'zh': {
-        'home': '首页', 'dashboard': '控制台', 'orders': '订单',
-        'login': '登录', 'register': '注册', 'logout': '退出',
+        'home': '🏠 首页', 'dashboard': '📊 控制台', 'orders': '📋 订单',
+        'login': '🔑 登录', 'register': '📝 注册', 'logout': '🚪 退出',
         'lang': 'EN',
         'subtitle': '量化策略跟单平台',
         'no_strategies': '暂无上线策略',
@@ -128,12 +122,13 @@ T = {
         'total_return': '总收益', 'duration': '运行时长',
         'signal': '信号', 'today_signal': '当日信号',
         'days': '天', 'long': '做多', 'short': '做空', 'flat': '空仓',
-        'copy_trade': '自动跟单', 'copy_desc': '绑定您的 Binance API Key，自动跟随此策略交易。',
+        'copy_trade': '🤖 自动跟单', 'copy_desc': '绑定您的 Binance API Key，自动跟随此策略交易。',
         'bind_api': '绑定 API Key', 'bind_api_desc': '请先前往控制台绑定 Binance API Key。',
         'go_dashboard': '前往控制台',
         'strategy_detail': '策略详情',
         'live_since': '实盘起始',
         'back': '← 返回首页',
+        'signed_in_as': '已登录',
     },
 }
 
@@ -231,26 +226,20 @@ def _render_chart(strategy_id, live_start_date=None):
 
     if bt_count:
         fig.add_trace(go.Scatter(
-            x=bt_plot['date'].tolist(),
-            y=bt_plot['nav_value'].tolist(),
-            mode='lines',
-            name=t('backtest'),
+            x=bt_plot['date'].tolist(), y=bt_plot['nav_value'].tolist(),
+            mode='lines', name=t('backtest'),
             line=dict(color='#6366f1', width=2),
-            fill='tozeroy',
-            fillcolor='rgba(99,102,241,0.05)',
+            fill='tozeroy', fillcolor='rgba(99,102,241,0.05)',
             hovertemplate='%{x|%Y-%m-%d}<br>NAV: %{y:.2f}<extra></extra>',
             connectgaps=True,
         ))
 
     if lv_count:
         fig.add_trace(go.Scatter(
-            x=lv_plot['date'].tolist(),
-            y=lv_plot['nav_value'].tolist(),
-            mode='lines',
-            name=t('live'),
+            x=lv_plot['date'].tolist(), y=lv_plot['nav_value'].tolist(),
+            mode='lines', name=t('live'),
             line=dict(color='#22c55e', width=2.5),
-            fill='tozeroy',
-            fillcolor='rgba(34,197,94,0.05)',
+            fill='tozeroy', fillcolor='rgba(34,197,94,0.05)',
             hovertemplate='%{x|%Y-%m-%d}<br>NAV: %{y:.2f}<extra></extra>',
             connectgaps=True,
         ))
@@ -287,11 +276,9 @@ def _position_label(pos, lang='en'):
         return '—'
     pct = f"{abs(pos)*100:.0f}%"
     if pos > 0.01:
-        direction = t('long')
-        return f"{direction} {pct}"
+        return f"{t('long')} {pct}"
     elif pos < -0.01:
-        direction = t('short')
-        return f"{direction} {pct}"
+        return f"{t('short')} {pct}"
     else:
         return t('flat')
 
@@ -308,50 +295,46 @@ def _calc_live_stats(lv_df):
     return {'total_return': total_return, 'duration_days': duration_days}
 
 
-# ── Header ──
+# ── Sidebar Navigation ──
 
-def _header():
-    c1, c2, c3 = st.columns([3, 2, 1])
-    with c1:
+def _sidebar():
+    with st.sidebar:
         st.markdown("### ◆ QuantVault")
         st.caption(t('subtitle'))
-    with c3:
-        col_lang, col_auth = st.columns(2)
-        with col_lang:
-            if st.button(t('lang'), key='lang_btn'):
-                st.session_state.lang = 'zh' if st.session_state.lang == 'en' else 'en'
+
+        if st.button(t('lang'), key='lang_btn', use_container_width=True):
+            st.session_state.lang = 'zh' if st.session_state.lang == 'en' else 'en'
+            st.rerun()
+
+        st.divider()
+
+        if st.session_state.logged_in:
+            st.markdown(f"👤 **{t('signed_in_as')}**: {st.session_state.username}")
+            nav_items = [t('home'), t('dashboard'), t('orders')]
+        else:
+            nav_items = [t('home'), t('login'), t('register')]
+
+        selected = st.radio("Navigation", nav_items, label_visibility='collapsed', key='nav_radio')
+
+        if selected == t('home'):
+            st.session_state.page = 'home'
+        elif selected == t('dashboard'):
+            st.session_state.page = 'dashboard'
+        elif selected == t('orders'):
+            st.session_state.page = 'orders'
+        elif selected == t('login'):
+            st.session_state.page = 'login'
+        elif selected == t('register'):
+            st.session_state.page = 'register'
+
+        if st.session_state.logged_in:
+            st.divider()
+            if st.button(t('logout'), key='logout_btn', use_container_width=True):
+                st.session_state.logged_in = False
+                st.session_state.user_id = None
+                st.session_state.username = ''
+                st.session_state.page = 'home'
                 st.rerun()
-        with col_auth:
-            if st.session_state.logged_in:
-                if st.button("🚪 " + t('logout'), key='logout_btn'):
-                    st.session_state.logged_in = False
-                    st.session_state.user_id = None
-                    st.session_state.username = ''
-                    st.rerun()
-            else:
-                if st.button("🔑 " + t('login'), key='login_btn'):
-                    st.session_state.page = 'login'
-                    st.rerun()
-
-    if st.session_state.logged_in:
-        nav_options = [t('home'), t('dashboard'), t('orders')]
-    else:
-        nav_options = [t('home'), t('login'), t('register')]
-
-    page = st.radio("Nav", nav_options, horizontal=True, label_visibility='collapsed', key='nav_radio')
-
-    if page == t('home'):
-        st.session_state.page = 'home'
-    elif page == t('dashboard'):
-        st.session_state.page = 'dashboard'
-    elif page == t('orders'):
-        st.session_state.page = 'orders'
-    elif page == t('login'):
-        st.session_state.page = 'login'
-    elif page == t('register'):
-        st.session_state.page = 'register'
-
-    return st.session_state.page
 
 
 # ── Home Page: Strategy Cards ──
@@ -365,6 +348,8 @@ def _page_home():
     if not strategies:
         st.warning(t('no_strategies'))
         return
+
+    st.markdown("## 🏠 Strategy Overview")
 
     cols_per_row = 2
     for i in range(0, len(strategies), cols_per_row):
@@ -387,7 +372,7 @@ def _render_strategy_card(s):
 
     badge = "🟢 LIVE" if status == 'LIVE' else "🟡 PAPER"
 
-    st.markdown(f"### {name}")
+    st.markdown(f"**{name}**")
     info = [symbol]
     if live_start:
         info.append(f"{t('live_since')} {str(live_start)[:10]}")
@@ -461,7 +446,7 @@ def _page_detail():
     _render_chart(s['id'], live_start_date=live_start)
 
     st.divider()
-    st.markdown(f"### 🤖 {t('copy_trade')}")
+    st.markdown(f"### {t('copy_trade')}")
     st.info(t('copy_desc'))
 
     if st.session_state.logged_in:
@@ -627,9 +612,9 @@ def _page_orders():
     st.dataframe(df[cols], use_container_width=True, hide_index=True)
 
 
-# ── Router ──
+# ── Main ──
 
-page = _header()
+_sidebar()
 
 page_map = {
     'home': _page_home,
