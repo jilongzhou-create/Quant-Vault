@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """
 云端跟单执行路由 (Copy-Trading Router)
+
+逻辑对齐 trading_engine/execution_agent.py:
+  - 使用 total equity (含已用保证金) 计算目标仓位
+  - 实盘强制 1x 杠杆
+  - 三道拦截防线: 偏离度 < 3% / 金额 < 11 USDT / 数量 < 0.001 BTC
+  - 禁用 fetchCurrencies 避免超时
 """
 
 import os
@@ -36,10 +42,9 @@ from saas_platform.web_frontend.crypto_utils import decrypt_api_key
 logger = logging.getLogger('saas_platform.production_engine.copy_trading_router')
 
 SANDBOX_MODE = True
-MIN_NOTIONAL_USDT = 11.0
-WEIGHT_TOLERANCE = 0.03
+MIN_NOTIONAL = 11.0
+WEIGHT_THRESHOLD = 0.03
 MIN_BTC_AMOUNT = 0.001
-MAX_SLIPPAGE_PCT = 0.005
 
 SYMBOL_TO_CCXT = {
     'BTC_USDT': 'BTC/USDT',
@@ -97,7 +102,6 @@ class CopyTradingRouter:
             for sub in subscriptions:
                 user_id = sub.get('user_id')
                 sub_id = sub.get('id')
-                allocated = sub.get('allocated_capital_usdt', 0)
                 user_info = sub.get('saas_users', {})
 
                 if not user_info:
@@ -132,7 +136,6 @@ class CopyTradingRouter:
                         strategy_id=strategy_id,
                         strategy_name=strategy_name,
                         target_position=target_position,
-                        allocated_capital=allocated,
                         sub_id=sub_id,
                         user_id=user_id,
                         trading_symbol=trading_symbol,
@@ -209,7 +212,6 @@ class CopyTradingRouter:
 
         target_symbol = strat.get('target_symbol', 'BTC_USDT')
         trading_symbol = SYMBOL_TO_CCXT.get(target_symbol, target_symbol.replace('_', '/'))
-        allocated = sub.get('allocated_capital_usdt', 0)
 
         try:
             result = self._execute_for_user(
@@ -220,7 +222,6 @@ class CopyTradingRouter:
                 strategy_id=strategy_id,
                 strategy_name=strat.get('name', 'N/A'),
                 target_position=target_position,
-                allocated_capital=allocated,
                 sub_id=sub['id'],
                 user_id=user_id,
                 trading_symbol=trading_symbol,
@@ -241,7 +242,6 @@ class CopyTradingRouter:
         strategy_id: str,
         strategy_name: str,
         target_position: float,
-        allocated_capital: float,
         sub_id: int,
         user_id: str,
         trading_symbol: str = 'BTC/USDT',
@@ -261,25 +261,47 @@ class CopyTradingRouter:
                     logger.warning(f"[{username}] \u65f6\u949f\u540c\u6b65\u91cd\u8bd5 {attempt+1}/3: {e}")
                     time.sleep(2)
 
-            balance_before = 0.0
-            try:
-                bal = exchange.fetch_balance()
-                balance_before = float(bal.get('USDT', {}).get('free', 0) or 0)
-                if balance_before <= 0:
-                    for ccy, info in bal.items():
-                        if isinstance(info, dict) and 'free' in info and float(info.get('free', 0)) > 0:
-                            balance_before = float(info['free'])
-                            break
-            except Exception as e:
-                logger.warning(f"[{username}] \u83b7\u53d6\u4f59\u989d\u5931\u8d25: {e}")
+            if not self.sandbox:
+                try:
+                    exchange.set_leverage(1, symbol)
+                    logger.info(f"[{username}] \U0001f512 \u5df2\u5f3a\u5236\u8bbe\u7f6e {symbol} \u6760\u6746\u4e3a 1x")
+                except Exception as e:
+                    logger.warning(f"[{username}] \u8bbe\u7f6e\u6760\u6746\u5931\u8d25(\u53ef\u80fd\u5df2\u662f1x): {e}")
 
-            if allocated_capital <= 0:
-                allocated_capital = balance_before
-                logger.info(f"[{username}] allocated_capital=0, \u4f7f\u7528\u4ea4\u6613\u6240\u4f59\u989d: {allocated_capital:.2f} USDT")
+            balance = None
+            for attempt in range(3):
+                try:
+                    balance = exchange.fetch_balance()
+                    break
+                except Exception as e:
+                    logger.warning(f"[{username}] \u83b7\u53d6\u4f59\u989d\u91cd\u8bd5 {attempt+1}/3: {e}")
+                    time.sleep(3)
 
-            if allocated_capital <= 0:
-                logger.warning(f"[{username}] \u8d26\u6237\u4f59\u989d\u4e3a 0\uff0c\u8df3\u8fc7")
+            if balance is None:
+                raise Exception("\u65e0\u6cd5\u8fde\u63a5\u4ea4\u6613\u6240\u83b7\u53d6\u4f59\u989d\uff0c\u4e3a\u4fdd\u8bc1\u8d44\u91d1\u5b89\u5168\uff0c\u7ec8\u6b62\u6267\u884c\uff01")
+
+            total_equity = float(balance.get('USDT', {}).get('total', 0) or 0)
+            free_balance = float(balance.get('USDT', {}).get('free', 0) or 0)
+            logger.info(f"[{username}] \u5408\u7ea6\u8d26\u6237\u603b\u6743\u76ca: {total_equity:.2f} USDT (\u53ef\u7528: {free_balance:.2f})")
+
+            if total_equity <= 0:
+                logger.warning(f"[{username}] \u8d26\u6237\u603b\u6743\u76ca\u4e3a 0\uff0c\u8df3\u8fc7")
                 return None
+
+            current_btc_amount = 0.0
+            for attempt in range(3):
+                try:
+                    positions = exchange.fetch_positions([symbol])
+                    for pos in positions:
+                        if pos['symbol'] == symbol:
+                            current_btc_amount = float(pos['info']['positionAmt'])
+                            break
+                    break
+                except Exception as e:
+                    logger.warning(f"[{username}] \u83b7\u53d6\u6301\u4ed3\u91cd\u8bd5 {attempt+1}/3: {e}")
+                    time.sleep(2)
+
+            logger.info(f"[{username}] \u5f53\u524d\u6301\u4ed3: {current_btc_amount:.6f} {symbol.split('/')[0]}")
 
             ticker = None
             for attempt in range(3):
@@ -291,35 +313,25 @@ class CopyTradingRouter:
                     time.sleep(2)
 
             if ticker is None:
-                raise Exception("\u65e0\u6cd5\u83b7\u53d6\u5e02\u573a\u4ef7\u683c")
+                raise Exception("\u65e0\u6cd5\u83b7\u53d6\u5e02\u573a\u6700\u65b0\u4ef7\u683c\uff0c\u7ec8\u6b62\u6267\u884c\uff01")
 
             current_price = ticker['last']
-            logger.info(f"[{username}] {symbol} \u4ef7\u683c: {current_price:.2f}")
+            logger.info(f"[{username}] {symbol} \u6700\u65b0\u4ef7\u683c: {current_price:.2f}")
 
-            target_amount = (allocated_capital * target_position) / current_price
-
-            position_before = 0.0
-            try:
-                positions = exchange.fetch_positions([symbol])
-                for pos in positions:
-                    if pos['symbol'] == symbol:
-                        position_before = float(pos['info']['positionAmt'])
-                        break
-            except Exception as e:
-                logger.warning(f"[{username}] \u83b7\u53d6\u6301\u4ed3\u5931\u8d25(\u89c6\u4e3a0): {e}")
-
-            current_weight = (position_before * current_price) / allocated_capital if allocated_capital > 0 else 0.0
-            weight_deviation = abs(target_position - current_weight)
-            delta_amount = target_amount - position_before
+            target_amount = (total_equity * target_position) / current_price
+            delta_amount = target_amount - current_btc_amount
             delta_value = abs(delta_amount) * current_price
+            current_weight = (current_btc_amount * current_price) / total_equity if total_equity > 0 else 0.0
+            weight_deviation = abs(target_position - current_weight)
 
-            logger.info(
-                f"[{username}] \u76ee\u6807={target_position*100:.1f}% \u5f53\u524d={current_weight*100:.1f}% "
-                f"\u504f\u79bb={weight_deviation*100:.1f}% \u5dee\u989d={delta_amount:.6f} ({delta_value:.2f} USDT)"
-            )
+            logger.info(f"[{username}] \u76ee\u6807\u4ed3\u4f4d: {target_position*100:.1f}% | \u5f53\u524d\u4ed3\u4f4d: {current_weight*100:.1f}%")
+            logger.info(f"[{username}] \u504f\u79bb\u5ea6: {weight_deviation*100:.1f}% | \u8c03\u4ed3\u5dee\u989d: {delta_amount:.6f} ({delta_value:.2f} USDT)")
 
-            if weight_deviation < WEIGHT_TOLERANCE and delta_value > 0:
-                logger.info(f"[{username}] \u504f\u79bb\u5ea6 < {WEIGHT_TOLERANCE*100:.0f}%\uff0c\u8df3\u8fc7\u5fae\u8c03")
+            balance_before = total_equity
+            position_before = current_btc_amount
+
+            if weight_deviation < WEIGHT_THRESHOLD and delta_value > 0:
+                logger.info(f"[{username}] \U0001f6d1 \u4ed3\u4f4d\u504f\u79bb\u5ea6 {weight_deviation*100:.2f}% < \u9608\u503c {WEIGHT_THRESHOLD*100:.0f}%\uff0c\u5ffd\u7565\u5fae\u8c03\uff0c\u907f\u514d\u624b\u7eed\u8d39\u78e8\u635f")
                 create_order({
                     'user_id': user_id,
                     'strategy_id': strategy_id,
@@ -341,8 +353,8 @@ class CopyTradingRouter:
                 })
                 return None
 
-            if delta_value < MIN_NOTIONAL_USDT:
-                logger.info(f"[{username}] \u5dee\u989d {delta_value:.2f} USDT < \u6700\u4f4e {MIN_NOTIONAL_USDT} USDT\uff0c\u8df3\u8fc7")
+            if delta_value < MIN_NOTIONAL:
+                logger.info(f"[{username}] \U0001f6d1 \u8c03\u4ed3\u91d1\u989d {delta_value:.2f} USDT < \u5e01\u5b89\u6700\u5c0f {MIN_NOTIONAL} USDT\uff0c\u4e0d\u6267\u884c")
                 create_order({
                     'user_id': user_id,
                     'strategy_id': strategy_id,
@@ -360,24 +372,24 @@ class CopyTradingRouter:
                     'position_after': position_before,
                     'notional_value': delta_value,
                     'is_sandbox': self.sandbox,
-                    'error_message': f'Below minimum notional ({delta_value:.2f} < {MIN_NOTIONAL_USDT} USDT)',
+                    'error_message': f'Below minimum notional ({delta_value:.2f} < {MIN_NOTIONAL} USDT)',
                 })
                 return None
 
             if abs(delta_amount) < MIN_BTC_AMOUNT:
-                logger.info(f"[{username}] \u5dee\u989d {abs(delta_amount):.6f} < \u6700\u5c0f\u7cbe\u5ea6 {MIN_BTC_AMOUNT}\uff0c\u8df3\u8fc7")
+                logger.info(f"[{username}] \U0001f6d1 \u8c03\u4ed3\u6570\u91cf {abs(delta_amount):.6f} < \u6700\u5c0f\u7cbe\u5ea6 {MIN_BTC_AMOUNT}\uff0c\u4e0d\u6267\u884c")
                 return None
 
             order = None
             side = ''
             if delta_amount > 0:
                 side = 'buy'
-                logger.info(f"[{username}] \U0001f680 \u4e70\u5165 {delta_amount:.6f} ({delta_value:.2f} USDT)")
+                logger.info(f"[{username}] \U0001f680 \u6267\u884c\u4e70\u5165(\u5e73\u7a7a/\u5f00\u591a): {delta_amount:.6f} ({delta_value:.2f} USDT)")
                 order = exchange.create_market_buy_order(symbol, delta_amount)
             elif delta_amount < 0:
                 side = 'sell'
                 sell_amount = abs(delta_amount)
-                logger.info(f"[{username}] \U0001f680 \u5356\u51fa {sell_amount:.6f} ({delta_value:.2f} USDT)")
+                logger.info(f"[{username}] \U0001f680 \u6267\u884c\u5356\u51fa(\u5e73\u591a/\u5f00\u7a7a): {sell_amount:.6f} ({delta_value:.2f} USDT)")
                 order = exchange.create_market_sell_order(symbol, sell_amount)
 
             if order:
@@ -388,18 +400,13 @@ class CopyTradingRouter:
 
                 fill_price = float(order.get('average', order.get('price', 0)))
 
-                balance_after = 0.0
+                balance_after = balance_before
                 position_after = position_before
                 try:
                     bal2 = exchange.fetch_balance()
-                    balance_after = float(bal2.get('USDT', {}).get('free', 0) or 0)
-                    if balance_after <= 0:
-                        for ccy, info in bal2.items():
-                            if isinstance(info, dict) and 'free' in info and float(info.get('free', 0)) > 0:
-                                balance_after = float(info['free'])
-                                break
+                    balance_after = float(bal2.get('USDT', {}).get('total', 0) or 0)
                 except Exception:
-                    balance_after = balance_before - delta_value if side == 'buy' else balance_before + delta_value
+                    balance_after = balance_before
 
                 try:
                     positions2 = exchange.fetch_positions([symbol])
@@ -485,6 +492,7 @@ class CopyTradingRouter:
                 }
 
             exchange = exchange_class(options)
+            exchange.options['fetchCurrencies'] = False
 
             if self.sandbox:
                 exchange.set_sandbox_mode(True)
@@ -495,7 +503,7 @@ class CopyTradingRouter:
             return exchange
 
         except Exception as e:
-            logger.error(f"\u521b\u5efa\u4ea4\u6613\u6240\u8fde\u63a5\u5931\u8d25: {e}")
+            logger.error(f"\u521c\u5efa\u4ea4\u6613\u6240\u8fde\u63a5\u5931\u8d25: {e}")
             return None
 
 
