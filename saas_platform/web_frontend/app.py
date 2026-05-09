@@ -552,8 +552,27 @@ elif view and view.startswith('strat_'):
                             import ccxt as _ccxt
                             from saas_platform.production_engine.copy_trading_router import CopyTradingRouter
                             router = CopyTradingRouter(sandbox=False)
-                            result = router.run()
-                            st.success(_t('trade_done', result.get('total_orders', 0), result.get('errors', 0)))
+                            result = router.execute_single(st.session_state.user_id, sid)
+                            if result.get('success'):
+                                order = result.get('order')
+                                if order:
+                                    sandbox_tag = " (TESTNET)" if order.get('is_sandbox') else " (LIVE)"
+                                    st.success(f"{_t('trade_done', 1, 0)}{sandbox_tag}")
+                                    st.json({
+                                        'side': order.get('side'),
+                                        'amount': f"{order.get('amount', 0):.6f}",
+                                        'price': f"{order.get('price', 0):.2f}",
+                                        'fee': f"{order.get('fee', 0):.4f}",
+                                        'balance_before': f"{order.get('balance_before', 0):.2f}",
+                                        'balance_after': f"{order.get('balance_after', 0):.2f}",
+                                        'position_before': f"{order.get('position_before', 0):.6f}",
+                                        'position_after': f"{order.get('position_after', 0):.6f}",
+                                    })
+                                else:
+                                    msg = result.get('message', 'No trade needed')
+                                    st.info(msg)
+                            else:
+                                st.error(_t('trade_failed', result.get('error', 'Unknown error')))
                         except ImportError:
                             st.error(_t('ccxt_missing'))
                         except Exception as ex:
@@ -562,9 +581,45 @@ elif view and view.startswith('strat_'):
                 st.markdown(f"**{_t('recent_trades')}**")
                 orders = get_user_orders(st.session_state.user_id, 20)
                 if orders:
-                    df = pd.DataFrame(orders)
-                    show_cols = [c for c in ['created_at', 'symbol', 'side', 'amount', 'price', 'status'] if c in df.columns]
-                    st.dataframe(df[show_cols].sort_values('created_at', ascending=False), use_container_width=True, hide_index=True)
+                    for o in orders:
+                        ts = str(o.get('created_at', ''))[:19]
+                        sym = o.get('symbol', '')
+                        side = o.get('side', '')
+                        amt = o.get('amount', 0)
+                        px = o.get('price', 0)
+                        fee = o.get('fee', 0)
+                        status = o.get('status', '')
+                        bal_b = o.get('balance_before', 0)
+                        bal_a = o.get('balance_after', 0)
+                        pos_b = o.get('position_before', 0)
+                        pos_a = o.get('position_after', 0)
+                        tgt = o.get('target_position', 0)
+                        sandbox = o.get('is_sandbox', True)
+                        ex_id = o.get('exchange_order_id', '')
+
+                        if status == 'SKIPPED':
+                            st.markdown(f"⏭️ `{ts}` | {sym} | SKIPPED | Target: {tgt*100:.0f}%")
+                            continue
+
+                        mode = "TESTNET" if sandbox else "LIVE"
+                        side_icon = "🟢" if side == "buy" else "🔴" if side == "sell" else "⚠️"
+                        status_icon = "✅" if status == "FILLED" else "❌" if status == "FAILED" else "⏳"
+
+                        detail = (
+                            f"{status_icon} `{ts}` | {side_icon} **{side.upper()}** | {sym} | [{mode}]\n"
+                            f"- Amount: `{amt:.6f}` @ `{px:.2f}` | Fee: `{fee:.4f}`\n"
+                        )
+                        if bal_b or bal_a:
+                            detail += f"- Balance: `{bal_b:.2f}` → `{bal_a:.2f}` USDT\n"
+                        if pos_b or pos_a:
+                            detail += f"- Position: `{pos_b:.6f}` → `{pos_a:.6f}`\n"
+                        if tgt:
+                            detail += f"- Target: `{tgt*100:.0f}%`\n"
+                        if ex_id:
+                            detail += f"- Order ID: `{ex_id}`\n"
+                        if o.get('error_message'):
+                            detail += f"- Error: `{o['error_message'][:100]}`\n"
+                        st.markdown(detail)
                 else:
                     st.caption(_t('no_trades'))
     else:

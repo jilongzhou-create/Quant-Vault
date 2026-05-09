@@ -155,6 +155,13 @@ CREATE TABLE IF NOT EXISTS saas_orders (
     exchange_order_id TEXT      DEFAULT '',
     status          TEXT        DEFAULT 'PENDING',
     error_message   TEXT        DEFAULT '',
+    target_position DOUBLE PRECISION DEFAULT 0,
+    balance_before  DOUBLE PRECISION DEFAULT 0,
+    balance_after   DOUBLE PRECISION DEFAULT 0,
+    position_before DOUBLE PRECISION DEFAULT 0,
+    position_after  DOUBLE PRECISION DEFAULT 0,
+    notional_value  DOUBLE PRECISION DEFAULT 0,
+    is_sandbox      BOOLEAN     DEFAULT TRUE,
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -730,7 +730,7 @@ def get_user_orders(user_id: str, limit: int = 50) -> list[dict]:
         return []
     return db.select(
         'saas_orders',
-        columns='id,strategy_id,symbol,side,order_type,amount,price,fee,exchange_order_id,status,error_message,created_at',
+        columns='id,strategy_id,symbol,side,order_type,amount,price,fee,exchange_order_id,status,error_message,target_position,balance_before,balance_after,position_before,position_after,notional_value,is_sandbox,created_at',
         filters={'user_id': f'eq.{user_id}'},
         order='created_at.desc', limit=limit,
     )
