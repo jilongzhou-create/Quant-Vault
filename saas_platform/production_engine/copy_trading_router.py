@@ -126,7 +126,28 @@ class CopyTradingRouter:
                     continue
 
                 if allocated <= 0:
-                    logger.warning(f"[{strategy_name}] 用户 {username} 分配资金为 0，跳过")
+                    try:
+                        api_key_tmp = decrypt_api_key(enc_key)
+                        api_secret_tmp = decrypt_api_key(enc_secret)
+                        tmp_exchange = self._create_exchange(api_key_tmp, api_secret_tmp, exchange_name)
+                        if tmp_exchange:
+                            balance = tmp_exchange.fetch_balance()
+                            allocated = float(balance.get('USDT', {}).get('free', 0) or 0)
+                            if allocated <= 0:
+                                for ccy, info in balance.items():
+                                    if isinstance(info, dict) and 'free' in info and float(info.get('free', 0)) > 0:
+                                        allocated = float(info['free'])
+                                        break
+                            logger.info(f"[{username}] allocated_capital=0, \u8bfb\u53d6\u4ea4\u6613\u6240\u4f59\u989d: {allocated:.2f} USDT")
+                            try:
+                                tmp_exchange.close()
+                            except Exception:
+                                pass
+                    except Exception as e:
+                        logger.warning(f"[{username}] \u8bfb\u53d6\u4f59\u989d\u5931\u8d25: {e}")
+
+                if allocated <= 0:
+                    logger.warning(f"[{strategy_name}] \u7528\u6237 {username} \u8d26\u6237\u4f59\u989d\u4e3a 0\uff0c\u8df3\u8fc7")
                     continue
 
                 total_users += 1

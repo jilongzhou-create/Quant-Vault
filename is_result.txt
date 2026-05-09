@@ -1,0 +1,45 @@
+============================================================
+  Phase 2 - IS Backtest (2018-01-01 ~ 2022-12-31)
+============================================================
+
+[1] Loading data...
+  shape=(2348, 11), range=2017-01-03 ~ 2026-05-06
+
+[2] Loading factors from DB...
+  8 factors loaded
+
+[3] Building labels & flattening (IS only)...
+  ML dataset: (13590, 11)
+  Date range: 2018-01-02 ~ 2022-12-30
+
+[4] LightGBM rolling training...
+  Alpha scores: (756, 11)
+  Prediction range: 2020-01-02 ~ 2022-12-30
+
+  Feature importance:
+    f_0: 277.9
+    f_3: 269.4
+    f_2: 210.6
+    f_4: 203.9
+    f_7: 181.1
+    f_1: 178.2
+    f_5: 161.1
+    f_6: 156.8
+
+[5] Generating positions (smooth=5, top_k=3)...
+  Avg daily holdings: 3.0
+
+[6] Running backtest...
+
+============================================================
+  IS BACKTEST RESULTS
+============================================================
+  Annual Return:   +7.90%
+  Max Drawdown:    -39.15%
+  Sharpe Ratio:    0.30
+  Calmar Ratio:    0.20
+  Annual Turnover: 38.3x
+  NAV: 1.0000 -> 1.2563
+  Date: 2020-01-02 ~ 2022-12-30
+
+[7] Plotting...
